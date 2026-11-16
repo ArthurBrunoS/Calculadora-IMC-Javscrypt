@@ -1,154 +1,106 @@
-const previousOperationText = document.querySelector("#previous-operation")
-const currentOperationText = document.querySelector("#current-operation")
-const button = document.querySelectorAll("#buttons-container button")
-
-class calculator{
-    constructor(previousOperationText, currentOperationText){
-        this.previousOperationText = previousOperationText
-        this.currentOperationText = currentOperationText
-        this.currentOperation = ""
+"use strict";
+class Calculator {
+  constructor() { this.clear(); }
+  clear() {
+    this.display = "0";
+    this.accumulator = null;
+    this.operator = null;
+    this.waitingForOperand = false;
+    this.justEvaluated = false;
+    this.error = "";
+  }
+  addDigit(digit) {
+    if (!/^[0-9.]$/.test(digit)) return;
+    if (this.error) this.clear();
+    if (this.waitingForOperand || this.justEvaluated) {
+      this.display = "0";
+      this.waitingForOperand = false;
+      this.justEvaluated = false;
     }
-
-    // add digit to calculator screen
-    addDigit(digit){
-        // check if current operation already has a dot
-        if(digit === "." && this.currentOperationText.innerText.includes(".")){
-            return
-        }
-        this.currentOperation = digit
-        this.updateScreen()
+    if (digit === ".") {
+      if (!this.display.includes(".")) this.display += ".";
+    } else if (this.display.replace(".", "").replace("-", "").length < 15) {
+      this.display = this.display === "0" ? digit : this.display + digit;
     }
-
-    // Process all calculator operations
-    processOperation(operation){
-    // Check if current is empty
-    if(this.currentOperationText.innerText === "" && operation !== "C"){
-        // Change operation
-        if(this.previousOperationText.innerText !== ""){
-            this.changeOperation(operation)
-        }
-        return
+  }
+  calculate(left, right, operator) {
+    if (operator === "/" && right === 0) throw new Error("Não é possível dividir por zero.");
+    const operations = {
+      "+": () => left + right,
+      "-": () => left - right,
+      "*": () => left * right,
+      "/": () => left / right
+    };
+    const result = operations[operator]();
+    if (!Number.isFinite(result)) throw new Error("Resultado fora do limite.");
+    return Number(result.toPrecision(12));
+  }
+  processOperation(operation) {
+    if (operation === "C") { this.clear(); return; }
+    if (this.error) return;
+    if (operation === "DEL") {
+      if (this.waitingForOperand) return;
+      this.display = this.display.slice(0, -1);
+      if (!this.display || this.display === "-") this.display = "0";
+      this.justEvaluated = false;
+      return;
     }
-
-    // Get current and previous value
-    let operationValue
-    const previous = +this.previousOperationText.innerText.split(" ")[0]
-    const current= +this.currentOperationText.innerText
-
-    switch(operation){
-        case "+":
-        operationValue = previous + current
-        this.updateScreen(operationValue, operation, current, previous)
-            break
-
-        case "-":
-        operationValue = previous - current
-        this.updateScreen(operationValue, operation, current, previous)
-            break
-
-        case "/":
-        operationValue = previous / current
-        this.updateScreen(operationValue, operation, current, previous)
-            break
-
-        case "*":
-        operationValue = previous * current
-        this.updateScreen(operationValue, operation, current, previous)
-            break
-
-        case "DEL":
-            this.processDELoperator()
-            break
-
-        case "CE":
-        this.processClearCurrentoperator()
-            break
-
-        case "C":
-        this.processClearOperator()
-            break
-
-        case "=":
-        this.processEqualOperator()
-            break
-
-
-        default: 
-            return   
-        }
+    if (operation === "CE") {
+      this.display = "0";
+      this.waitingForOperand = false;
+      this.justEvaluated = false;
+      return;
     }
-
-    //Change values of calculator screen
-    updateScreen(operationValue = null,
-         operation=null ,
-         current=null, 
-         previous=null )
-         {
-
-        console.log(operationValue, operation, current, previous)
-        
-        if(operationValue === null){
-            this.currentOperationText.innerText += this.currentOperation
-        }else{
-            // check if value is zero ,if is just add current value
-            if(previous === 0){
-                operationValue = current
-            }
-
-            // add current value to previous
-            this.previousOperationText.innerText = `${operationValue} ${operation}`
-            this.currentOperationText.innerText = ""
-
-        }
+    if (!["+", "-", "*", "/", "="].includes(operation)) return;
+    try {
+      const current = Number(this.display);
+      if (operation === "=") {
+        if (!this.operator || this.accumulator === null || this.waitingForOperand) return;
+        this.display = String(this.calculate(this.accumulator, current, this.operator));
+        this.accumulator = null;
+        this.operator = null;
+        this.justEvaluated = true;
+        return;
+      }
+      if (this.operator && !this.waitingForOperand) {
+        this.display = String(this.calculate(this.accumulator, current, this.operator));
+      }
+      this.accumulator = Number(this.display);
+      this.operator = operation;
+      this.waitingForOperand = true;
+      this.justEvaluated = false;
+    } catch (error) {
+      this.error = error.message;
+      this.accumulator = null;
+      this.operator = null;
     }
-
-    // Change Math operation
-    changeOperation(operation){
-
-        const mathOperations = ["*" , "/" , "-" , "+"]
-
-        if(!mathOperations.includes(operation)){
-            return
-        }
-        this.previousOperationText.innerText = this.previousOperationText.innerText.slice(0, -1) + operation
-    }
-
-    // Delete the last digit
-    processDELoperator(){
-        this.currentOperationText.innerText = this.currentOperationText.innerText.slice(0, -1)
-    }
-
-    // clear current operation
-    processClearCurrentoperator(){
-        this.currentOperationText.innerText = ""
-    }
-
-    // clear all operations
-    processClearOperator(){
-        this.currentOperationText.innerText = ""
-        this.previousOperationText.innerText = ""
-
-    }
-
-    // Process an operation
-    processEqualOperator(){
-        const operation = this.previousOperationText.innerText.split(" ")[1]
-
-        this.processOperation(operation)
-
-    }
+  }
 }
-
-const calc = new calculator(previousOperationText , currentOperationText)
-
-button.forEach((btn) =>{
-    btn.addEventListener("click" , (e) => {
-        const value = e.target.innerText
-
-        if(+value >= 0 || value ==="."){
-            calc.addDigit(value)
-        }else{
-            calc.processOperation(value)
-        }
-    })
-})
+if (typeof module !== "undefined" && module.exports) module.exports = { Calculator };
+if (typeof document !== "undefined") {
+  const calc = new Calculator();
+  const previous = document.querySelector("#previous-operation");
+  const current = document.querySelector("#current-operation");
+  function render() {
+    previous.textContent = calc.accumulator !== null ? calc.accumulator + " " + calc.operator : "";
+    current.textContent = calc.error || calc.display;
+  }
+  function press(value) {
+    if (/^[0-9.]$/.test(value)) calc.addDigit(value);
+    else calc.processOperation(value);
+    render();
+  }
+  document.querySelectorAll("#buttons-container button").forEach(button => {
+    button.addEventListener("click", () => press(button.textContent.trim()));
+  });
+  document.addEventListener("keydown", event => {
+    if (event.ctrlKey || event.metaKey || event.altKey || /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
+    const aliases = { Enter: "=", Escape: "C", Backspace: "DEL", Delete: "CE", ",": "." };
+    const value = aliases[event.key] || event.key;
+    if (/^[0-9.+*/=-]$/.test(value) || ["C", "CE", "DEL"].includes(value)) {
+      event.preventDefault();
+      press(value);
+    }
+  });
+  render();
+}
